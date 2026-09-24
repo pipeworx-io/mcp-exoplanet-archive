@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.pipeworx-io/exoplanet-archive",
   "title": "Exoplanet Archive",
-  "description": "NASA Exoplanet Archive — ~5600 confirmed exoplanets + candidates",
-  "version": "0.1.0",
+  "description": "NASA Exoplanet Archive MCP.",
+  "version": "0.1.1",
   "websiteUrl": "https://pipeworx.io/packs/exoplanet-archive",
   "repository": {
     "url": "https://github.com/pipeworx-io/mcp-exoplanet-archive",

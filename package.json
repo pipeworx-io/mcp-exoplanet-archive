@@ -1,20 +1,32 @@
 {
   "name": "@pipeworx/mcp-exoplanet-archive",
-  "version": "0.1.0",
-  "description": "NASA Exoplanet Archive — ~5600 confirmed exoplanets + candidates",
+  "version": "0.1.1",
+  "description": "NASA Exoplanet Archive MCP.",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "bin": {
+    "mcp-exoplanet-archive": "bin/cli.js"
+  },
   "keywords": ["mcp", "mcp-server", "model-context-protocol", "pipeworx", "exoplanet-archive"],
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pipeworx-io/mcp-exoplanet-archive"
+    "url": "git+https://github.com/pipeworx-io/mcp-exoplanet-archive.git"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "tsx": "^4.19.0"
+  },
   "devDependencies": {
-    "typescript": "^5.7.0"
+    "typescript": "^5.9.3",
+    "@cloudflare/workers-types": "^4.20260405.1"
+  },
+  "pipeworx": {
+    "sourceHash": "v1-748109ee19d543fa8d773575394ba92ef92558b0c055312e688438d94b3c3a9d",
+    "sourceCommit": "76aa8f5d9b5dc2f665563030647c68e661478864"
   }
 }
