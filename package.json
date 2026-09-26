@@ -1,6 +1,6 @@
 {
   "name": "@pipeworx/mcp-exoplanet-archive",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "NASA Exoplanet Archive MCP.",
   "type": "module",
   "main": "src/index.ts",
@@ -26,7 +26,7 @@
     "@cloudflare/workers-types": "^4.20260405.1"
   },
   "pipeworx": {
-    "sourceHash": "v1-748109ee19d543fa8d773575394ba92ef92558b0c055312e688438d94b3c3a9d",
-    "sourceCommit": "76aa8f5d9b5dc2f665563030647c68e661478864"
+    "sourceHash": "v1-4ceacad809aea6e2bb2ea979fbe7f216758b6341738496e1798f469a71578101",
+    "sourceCommit": "91681e9a4a137fa0051d58e32f38c64b6334af5c"
   }
 }
