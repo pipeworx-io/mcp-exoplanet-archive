@@ -1,20 +1,39 @@
 # @pipeworx/exoplanet-archive
 
-NASA [Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu) MCP — ~5600 confirmed exoplanets + candidates + light curves. Keyless TAP service.
+NASA [Exoplanet Archive](https://exoplanetarchive.ipac.caltech.edu) MCP — ~6,451 confirmed exoplanets + candidates + light curves. Keyless TAP service.
 
-Part of [Pipeworx](https://pipeworx.io) — an MCP gateway connecting AI agents to 1683+ live data sources.
+Part of [Pipeworx](https://pipeworx.io) — an MCP gateway connecting AI agents to 1819+ live data sources. This is an independent, unofficial integration — not affiliated with, endorsed by, or published by the upstream provider.
+
+## A row-grain trap: `ps` vs `pscomppars`
+
+The archive publishes two planet tables with different row grains, and mixing
+them up silently over-counts planets by ~6x:
+
+- **`ps`** (Planetary Systems) — one row per published parameter **solution**.
+  A planet re-measured across several papers gets several rows, so
+  `COUNT(*) FROM ps` counts solutions, not planets (40,350 rows for 6,451
+  confirmed planets, 2026-10-16).
+- **`pscomppars`** (Planetary Systems Composite Parameters) — one row per
+  confirmed **planet**. This is the right table for "how many confirmed
+  exoplanets" and for any per-planet listing.
+
+Use `confirmed_planet_count` or `composite` for planet counts/listings. If you
+query `ps` directly (via `planets` or `tap`), filter `default_flag = 1` or
+count `DISTINCT pl_name` to get one row per planet; every response from this
+pack names its row unit so this can't be missed silently.
 
 ## Tools
 
-- `tap(query, format?)` — ADQL TAP query against the archive (default table: `ps`)
-- `planets(query?, limit?)` — quick planet search (defaults to `ps` planet table)
-- `composite(query?, limit?)` — query the composite planet parameter table `pscomppars`
-- `kepler_candidates(query?, limit?)` — Kepler Object of Interest (KOI) table
+- `tap(query, format?)` — ADQL TAP query against the archive (default table: `ps`). A raw `COUNT(*) FROM ps` without `default_flag`/`DISTINCT` comes back with a `warning` field, not a bare number.
+- `planets(query?, limit?)` — per-solution search against the `ps` table; every response carries a `unit` field naming the row grain
+- `composite(query?, limit?)` — query the composite planet parameter table `pscomppars` (one row per confirmed planet)
+- `confirmed_planet_count(query?)` — count of confirmed exoplanets from `pscomppars`, with its unit and the date of the live query; optional WHERE-clause filter (e.g. `disc_year = 2023`)
+- `kepler_candidates(query?, limit?)` — Kepler Object of Interest (KOI) table (unconfirmed candidates)
 - `microlensing(query?, limit?)` — microlensing event table
 
 ## Data source
 
-`https://exoplanetarchive.ipac.caltech.edu/TAP/sync`
+NASA Exoplanet Archive, TAP service.
 
 ## Quick Start
 
@@ -60,7 +79,7 @@ directly, instead of just this one's:
 }
 ```
 
-Both URLs reach the same gateway and the same 1683+ data sources. The
+Both URLs reach the same gateway and the same 1819+ data sources. The
 only difference is which pack's tools are listed **directly**; `ask_pipeworx`
 reaches all of them from either one.
 

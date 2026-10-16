@@ -692,7 +692,11 @@ const UA = 'pipeworx-mcp-exoplanet-archive/1.0 (+https://pipeworx.io)';
 const tools: McpToolExport['tools'] = [
   {
     name: 'tap',
-    description: 'ADQL TAP query.',
+    description: 'ADQL TAP query. For "how many confirmed exoplanets" or any per-planet count, '
+      + 'query `pscomppars` (one row per confirmed planet) or COUNT(DISTINCT pl_name) -- never a bare '
+      + 'COUNT(*) FROM ps, which counts published parameter SOLUTIONS (several per planet, currently '
+      + '~40k rows for ~6.5k planets) and silently over-counts by 6x. Prefer the dedicated '
+      + 'confirmed_planet_count tool for planet-count questions.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -704,7 +708,11 @@ const tools: McpToolExport['tools'] = [
   },
   {
     name: 'planets',
-    description: 'Quick planet search against the `ps` (planetary systems) table.',
+    description: 'Per-solution search against the `ps` (Planetary Systems) table -- one row per '
+      + 'published parameter SOLUTION, with several solutions per confirmed planet. Good for comparing '
+      + 'how a planet\'s measured parameters changed across papers; NOT a planet count or a clean '
+      + 'per-planet list (its row count is parameter solutions, not planets). For planet counts or '
+      + 'one-row-per-planet listings use `composite` or `confirmed_planet_count` instead.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -715,7 +723,9 @@ const tools: McpToolExport['tools'] = [
   },
   {
     name: 'composite',
-    description: 'Composite planet parameter table `pscomppars`.',
+    description: 'Composite planet parameter table `pscomppars` -- one row per confirmed planet. Use '
+      + 'this (or `confirmed_planet_count`) for "how many confirmed exoplanets" questions and for any '
+      + 'per-planet listing; do not use `ps`/`tap` for those, since `ps` has several rows per planet.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -725,8 +735,22 @@ const tools: McpToolExport['tools'] = [
     },
   },
   {
+    name: 'confirmed_planet_count',
+    description: 'Count of confirmed exoplanets -- from the composite parameter table `pscomppars` '
+      + '(one row per planet), not the per-solution `ps` table. Use this for "how many confirmed '
+      + 'exoplanets" questions. Optional filter narrows the count, e.g. "disc_year = 2023" for planets '
+      + 'discovered that year. Returns the unit and the date of the live query.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Optional WHERE clause on pscomppars (without "WHERE"), e.g. "disc_year = 2023".' },
+      },
+    },
+  },
+  {
     name: 'kepler_candidates',
-    description: 'Kepler Object of Interest (KOI) candidate table.',
+    description: 'Kepler Object of Interest (KOI) candidate table -- unconfirmed candidates, not '
+      + 'confirmed planets. Do not use this table\'s row count to answer a confirmed-planet-count question.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -737,7 +761,7 @@ const tools: McpToolExport['tools'] = [
   },
   {
     name: 'microlensing',
-    description: 'Microlensing event table.',
+    description: 'Microlensing event table -- detection events, not a planet count.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -750,12 +774,18 @@ const tools: McpToolExport['tools'] = [
 
 async function callTool(name: string, args: Record<string, unknown>): Promise<unknown> {
   switch (name) {
-    case 'tap':
-      return runQuery(reqStr(args, 'query', '"SELECT TOP 5 pl_name FROM ps"'), String(args.format ?? 'json'));
+    case 'tap': {
+      const query = reqStr(args, 'query', '"SELECT TOP 5 pl_name FROM ps"');
+      const format = String(args.format ?? 'json');
+      const result = await runQuery(query, format);
+      return format === 'json' ? labelCountQuery(query, result) : result;
+    }
     case 'planets':
       return tableQuery('ps', args);
     case 'composite':
       return tableQuery('pscomppars', args);
+    case 'confirmed_planet_count':
+      return countConfirmedPlanets(args);
     case 'kepler_candidates':
       // The KOI table is called `cumulative` (the cumulative KOI delivery), not
       // `koi` — there has never been a table by that name, so this tool 500'd on
@@ -769,11 +799,90 @@ async function callTool(name: string, args: Record<string, unknown>): Promise<un
   }
 }
 
+// Unit label for a bare row count on each table this pack exposes. `ps` is
+// the one that bites: it is NASA's per-solution table (one row per published
+// parameter SOLUTION), so COUNT(*) FROM ps measures solutions, not planets --
+// 40,350 rows for ~6,451 confirmed planets on 2026-10-16 (fleet #3199). Every
+// count response below carries one of these so a caller can tell the unit
+// without having to know the schema.
+const TABLE_UNITS: Record<string, string> = {
+  ps: 'parameter solutions (ps table) -- one row per published parameter SOLUTION; the archive '
+    + 'carries several solutions per confirmed planet, so this is NOT a planet count. Use pscomppars '
+    + '(composite table), COUNT(DISTINCT pl_name), or the confirmed_planet_count tool for a planet count.',
+  pscomppars: 'confirmed planets (pscomppars, the composite parameter table) -- one row per planet.',
+  cumulative: 'Kepler Objects of Interest (KOI) candidate rows -- unconfirmed candidates, not confirmed planets.',
+  ml: 'microlensing event rows -- not a planet count.',
+};
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function tableQuery(table: string, args: Record<string, unknown>): Promise<unknown> {
   const limit = Math.min(10000, Math.max(1, (args.limit as number) ?? 25));
   const where = args.query ? ` WHERE ${args.query}` : '';
   const sql = `SELECT TOP ${limit} * FROM ${table}${where}`;
-  return runQuery(sql, 'json', table);
+  return runQuery(sql, 'json', table).then((rows) => labelRows(table, rows));
+}
+
+// Every listing from a table whose row grain isn't "one row per planet" gets
+// its unit named in the response itself, not just in the tool description --
+// a caller (or router) that skipped the description still sees it in the
+// payload, and the envelope's own `count` field (rows returned, capped by
+// `limit`) can't be misread as a total planet count.
+function labelRows(table: string, rows: unknown): unknown {
+  if (!Array.isArray(rows)) return rows;
+  return { items: rows, count: rows.length, unit: TABLE_UNITS[table] ?? `rows from ${table}` };
+}
+
+async function countConfirmedPlanets(args: Record<string, unknown>): Promise<unknown> {
+  const where = args.query ? ` WHERE ${args.query}` : '';
+  const sql = `SELECT COUNT(*) AS confirmed_planets FROM pscomppars${where}`;
+  const rows = (await runQuery(sql, 'json', 'pscomppars')) as Record<string, unknown>[];
+  const first = rows?.[0] ?? {};
+  const n = Number(Object.values(first)[0] ?? 0);
+  return {
+    confirmed_planets: n,
+    unit: TABLE_UNITS.pscomppars,
+    data_as_of: todayIso(),
+    ...(typeof args.query === 'string' && args.query ? { filter: args.query } : {}),
+  };
+}
+
+// Detects a raw `SELECT COUNT(...) FROM <table>` composed by the caller via
+// `tap` and labels it the same way -- this is the escape hatch that let a
+// caller bypass the dedicated tools above and land directly on a ps-row
+// count (fleet #3199: "SELECT COUNT(*) AS confirmed_count FROM ps" -> 40,350).
+function detectCountTable(query: string): { table: string; guarded: boolean } | null {
+  const q = query.toLowerCase();
+  if (!/count\s*\(/.test(q)) return null;
+  const m = /\bfrom\s+([a-z_][a-z0-9_]*)/.exec(q);
+  if (!m) return null;
+  const guarded = /default_flag\s*=\s*1/.test(q) || /count\s*\(\s*distinct/.test(q);
+  return { table: m[1], guarded };
+}
+
+function labelCountQuery(query: string, result: unknown): unknown {
+  if (!Array.isArray(result)) return result;
+  const hit = detectCountTable(query);
+  if (!hit) return result;
+  const data_as_of = todayIso();
+  if (hit.table === 'ps' && !hit.guarded) {
+    return {
+      items: result,
+      count: result.length,
+      data_as_of,
+      unit: TABLE_UNITS.ps,
+      warning: 'This counts rows in the `ps` table (parameter solutions), which carries several rows '
+        + 'per confirmed planet -- it is NOT a planet count. Use pscomppars, COUNT(DISTINCT pl_name), or '
+        + 'the confirmed_planet_count tool for a planet count.',
+    };
+  }
+  const unit = hit.table === 'ps'
+    // Guarded (default_flag=1 or COUNT(DISTINCT ...)): effectively one row per planet.
+    ? 'confirmed planets (ps filtered to one default solution per planet).'
+    : (TABLE_UNITS[hit.table] ?? `rows from ${hit.table}`);
+  return { items: result, count: result.length, data_as_of, unit };
 }
 
 async function runQuery(query: string, format: string, table?: string): Promise<unknown> {
