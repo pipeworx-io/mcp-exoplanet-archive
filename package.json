@@ -1,12 +1,20 @@
 {
   "name": "@pipeworx/mcp-exoplanet-archive",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "NASA Exoplanet Archive MCP.",
   "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./tools.json": "./tools.json",
+    "./package.json": "./package.json"
+  },
   "bin": {
     "mcp-exoplanet-archive": "bin/cli.js"
+  },
+  "files": ["bin/", "lib/", "tools.json", "server.json"],
+  "engines": {
+    "node": ">=18"
   },
   "keywords": ["mcp", "mcp-server", "model-context-protocol", "pipeworx", "exoplanet-archive"],
   "license": "MIT",
@@ -14,19 +22,12 @@
     "type": "git",
     "url": "git+https://github.com/pipeworx-io/mcp-exoplanet-archive.git"
   },
-  "scripts": {
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "tsx": "^4.19.0"
-  },
-  "devDependencies": {
-    "typescript": "^5.9.3",
-    "@cloudflare/workers-types": "^4.20260405.1"
-  },
+  "mcpName": "io.github.pipeworx-io/exoplanet-archive",
   "pipeworx": {
-    "sourceHash": "v1-befbde8fe2887ca88c3e7e7611eccaa6712af57d849cbb9e4fcfa2f4ef1cf33b",
-    "sourceCommit": "722087a9bda73f85942e8f6bbfd598544cb0d490"
+    "mode": "gateway",
+    "slug": "exoplanet-archive",
+    "gatewaySlug": "exoplanet-archive",
+    "sourceHash": "v1-2153e31ec9a1315c609d3bac159f126acb8ea6d294aebc33c016d28bf595031e",
+    "sourceCommit": "bb047243cf27f32453103de186b8e6a8b6a1ce79"
   }
 }
