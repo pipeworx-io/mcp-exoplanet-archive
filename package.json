@@ -1,6 +1,6 @@
 {
   "name": "@pipeworx/mcp-exoplanet-archive",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "NASA Exoplanet Archive MCP.",
   "type": "module",
   "main": "lib/index.js",
@@ -27,7 +27,7 @@
     "mode": "gateway",
     "slug": "exoplanet-archive",
     "gatewaySlug": "exoplanet-archive",
-    "sourceHash": "v1-2153e31ec9a1315c609d3bac159f126acb8ea6d294aebc33c016d28bf595031e",
-    "sourceCommit": "bb047243cf27f32453103de186b8e6a8b6a1ce79"
+    "sourceHash": "v1-5691bf3ff785dabe785ff28f91b234b2c431c6569207f4ce5b27db8cba84bdb2",
+    "sourceCommit": "d35e32c1ffe988e24d391dedb35666387fd2b3d6"
   }
 }
